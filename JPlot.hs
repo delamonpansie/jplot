@@ -418,18 +418,19 @@ main = do
 
   packDescrCell plotsView graphStore $ \val -> do
       realized <- widgetGetRealized canvas
-      case (realized, val) of
-        (False, _) -> return "\t"
-        (_, (_, False, _, _)) -> return "\t"
-        (_, (_, _, Nothing, _)) -> return "\t"
-        (_, (_, _, _, [])) -> return "\t"
-        (_, (g, _, scaler, ps)) -> do          
-             (mX, mY) <- readIORef mousePos
-             dw <- widgetGetDrawWindow canvas
-             renderWithDrawable dw $ do 
-                C.setMatrix $ fromJust scaler
-                (_, y) <- C.deviceToUser mX mY
-                return $ printf "%.1f" $ jLogGraphFactor g * y
+      if not realized
+      then return "\t"
+      else case val of
+             (_, False, _, _) -> return "\t"
+             (_, _, Nothing, _) -> return "\t"
+             (_, _, _, []) -> return "\t"
+             (g, _, scaler, ps) -> do
+                 (mX, mY) <- readIORef mousePos
+                 dw <- widgetGetDrawWindow canvas
+                 renderWithDrawable dw $ do
+                        C.setMatrix $ fromJust scaler
+                        (_, y) <- C.deviceToUser mX mY
+                        return $ printf "%.1f" $ jLogGraphFactor g * y
 
   widgetAddEvents canvas [PointerMotionMask]
   canvas `on` motionNotifyEvent $ tryEvent $ do 
