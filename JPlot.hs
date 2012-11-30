@@ -365,9 +365,11 @@ toggleViewNew store = do
   return (window, view, col)
 
 widgetInvalidate w offset = do
-  dw <- widgetGetDrawWindow w
-  Rectangle _ _ width height <- widgetGetAllocation w
-  drawWindowInvalidateRect dw (Rectangle offset 0 (width - offset) height) True
+  realized <- widgetGetRealized w
+  when realized $ do
+    dw <- widgetGetDrawWindow w
+    Rectangle _ _ width height <- widgetGetAllocation w
+    drawWindowInvalidateRect dw (Rectangle offset 0 (width - offset) height) True
 
 type Canvas = DrawingArea
 canvasNew :: IO (Frame, Canvas)
