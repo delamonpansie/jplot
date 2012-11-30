@@ -311,7 +311,9 @@ renderAxisAndPlots (Layout top main tAxis yAxis) plots = do
         C.restore
 
       longest = head $ sortBy (rcomparing plotMaxT) plots
-      largest = nubBy ((==) `F.on` plotN) $ sortBy (rcomparing plotMaxV) plots
+      largest = sortBy (comparing plotN) $
+                nubBy ((==) `F.on` plotN) $
+                sortBy (rcomparing plotMaxV) plots
 
   renderXAxis longest
   mapM_ (uncurry renderYAxis) $ zip [axisHeight, axisHeight * 2 ..] largest
