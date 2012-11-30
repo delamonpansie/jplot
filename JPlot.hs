@@ -119,36 +119,39 @@ matrixNew ps = Matrix rowCount (listArray ((0,0), (rowCount,rowLen)) $ concat ps
                        rowCount = length ps
 matrixCol (Matrix rowCount x) n = [x ! (i,n) | i <- [0..rowCount - 1]]
 
-readMatrix :: FilePath -> IO Matrix
-readMatrix fileName = do
-  contents <- B.readFile fileName
-  let xs = map (map readDouble)
-           $ map (take 32 . drop 2)
-           $ map (B.split ';')
-           $ filter (/= "")
-           $ B.splitWith (\b -> b == '\r' || b == '\n') contents
+parseMatrix :: B.ByteString -> Maybe Matrix
+parseMatrix text = do
+  let raw = map (map readDouble . drop 2 . B.split ';')
+            $ filter (\line -> B.length line > 0 && B.head line == '$')
+            $ B.splitWith (\b -> b == '\r' || b == '\n') text
+  guard $ length raw > 1
+  let rowLen = length $ head raw
+  guard $ rowLen > 2
+  let xs = filter (\row -> length row == rowLen && head row > 0) raw
+  guard $ length xs > 2
   return $ matrixNew xs
    where readDouble str = case B.readDouble str of
                             Just (x, _) -> x
                             Nothing -> 0
 
 data JLogFile = JLogFile { jLogFileName :: FilePath,
-                           jLogDataMatrix :: Matrix } deriving (Show)
+                           jLogDataMatrix :: Maybe Matrix } deriving (Show)
 
 jLogFile :: FilePath -> FilePath -> IO JLogFile
 jLogFile dirName fileName = do
-  matrix <- readMatrix $ dirName </> fileName
-  return $ JLogFile (dropExtension fileName) matrix
+  fileContents <- B.readFile $ dirName </> fileName
+  return $ JLogFile (dropExtension fileName) (parseMatrix fileContents)
 
 
-jLogDir :: FilePath -> IO [JLogFile]
-jLogDir dirName =
-  fileList dirName >>= filterM bigEnough >>= mapM loadFile
+jLogDir :: FilePath -> String -> IO [JLogFile]
+jLogDir dirName extension =
+  fileList dirName >>=
+  filterM bigEnough >>=
+  mapM (jLogFile dirName)
     where
-      loadFile = jLogFile dirName
       bigEnough file = do size <- getFileSize $ dirName </> file
                           return $ size > 1024
-      fileList dirName = reverse . sort . filter (isSuffixOf "txt") <$>
+      fileList dirName = reverse . sort . filter (isSuffixOf extension) <$>
                          getDirectoryContents dirName
 
 data Dim = Dim { width :: Double,
@@ -161,7 +164,8 @@ data Plot = Plot { plotG :: JLogGraph,
                    plotMaxT :: Double,
                    plotMaxV :: Double }
 
-mkPlot g scaler (JLogFile _ m) = Plot g scaler ts vs maxT maxV
+mkPlot g scaler (JLogFile _ Nothing) = Plot g Nothing [] [] 0 0
+mkPlot g scaler (JLogFile _ (Just m)) = Plot g scaler ts vs maxT maxV
     where ts = matrixCol m 0
           vs = matrixCol m (jLogGraphN g)
           (maxT, maxV) = (maximum ts, maximum vs)
@@ -444,7 +448,7 @@ main = do
 
   let reloadDir = do
          dir <- readIORef dirRef
-         files <- jLogDir dir
+         files <- jLogDir dir "txt"
          listStoreClear fileStore
          mapM_ (listStoreAppend fileStore) $ zip files (True : cycle [False])
          widgetInvalidate canvas 0
