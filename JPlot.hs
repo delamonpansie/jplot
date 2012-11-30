@@ -246,7 +246,6 @@ plotScaler (Layout top main tAxis yAxis) plot = Just $
     flipY = M.Matrix 1 0 0 (-1) 0 0
     Dim maxT maxV = plotDim plot
     
-
 renderPlot :: Plot -> C.Render ()
 renderPlot (Plot _ Nothing _ _ _ _) = return ()
 renderPlot p@(Plot g (Just scaler) ts vs _ _) = do
@@ -278,7 +277,7 @@ renderAxisAndPlots (Layout top main tAxis yAxis) plots = do
         renderAxis "" LabelUp (width tAxis) [0,60..plotMaxT p]
         C.restore
 
-      renderYAxis offset p = do 
+      renderYAxis offset p = do
         C.save
         C.translate offset (height main + height top)
         C.rotate (-pi / 2)
