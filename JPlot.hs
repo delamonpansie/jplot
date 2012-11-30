@@ -255,16 +255,16 @@ roundPoints minX maxX =
           points (mul, dec) = [minX, minX + (step mul dec) .. maxX]
 
 
-plotScaler :: CanvasLayout -> Plot -> Maybe M.Matrix
-plotScaler (Layout top main tAxis yAxis) (Plot _ _ _ _ _ 0) = Nothing
-plotScaler (Layout top main tAxis yAxis) plot = Just $ 
+plotScaler :: CanvasLayout -> Double -> Double -> Maybe M.Matrix
+plotScaler _ _ 0 = Nothing
+plotScaler _ 0 _ = Nothing
+plotScaler (Layout top main tAxis yAxis) maxT maxV = Just $
   M.translate (width yAxis) (height top) $
   M.translate 0 (height main) $
   M.scale (width main / maxT) (height main / maxV) $
   flipY
   where
     flipY = M.Matrix 1 0 0 (-1) 0 0
-    Dim maxT maxV = plotDim plot
     
 renderPlot :: Plot -> C.Render ()
 renderPlot (Plot _ Nothing _ _ _ _) = return ()
@@ -340,8 +340,9 @@ updateStores dim fileStore graphStore = do
      update layout _ (g, False, _, _) = (g, False, Nothing, [])
      update layout files (g, True, _, _) = (g, True, scaler, ps)
        where ps = map (mkPlot g scaler) files
-             maxPlot = maximumBy (comparing plotMaxV) ps
-             scaler = plotScaler layout maxPlot 
+             maxT = maximum $ map plotMaxT ps
+             maxV = maximum $ map plotMaxV ps
+             scaler = plotScaler layout maxT maxV
 
 
 packLabelCell :: (a -> String) -> ListStore a -> TreeViewColumn -> IO CellRendererText
