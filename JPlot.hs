@@ -102,7 +102,23 @@ jLog2Graphs = [ JLogGraph 1 "U-BEC" "V" "Ubec" 0.1,
                 JLogGraph 30 "EXT:Temp5" "C" "EXT:T5" 0.1,
                 JLogGraph 31 "EXT:RPM" "RPM" "EXT:R" 1]
 
-jLog2GraphsToggled = map (\x -> (x, jLogGraphN x `elem` [3, 4, 7, 8], undefined, [])) jLog2Graphs
+kosmikGraphs = [ JLogGraph 1 "RPMmot_2pn" "RPM" "RPM" 1.0,
+                 JLogGraph 2 "Ubat" "V" "Ubat" 1.0,
+                 JLogGraph 3 "Imot(integrated)" "A" "Imot(integrated)" 1.0,
+                 JLogGraph 4 "Ah" "Ah" "Ah" 1.0,
+                 JLogGraph 5 "Imot" "A" "Imot" 1.0,
+                 JLogGraph 6 "tFET" "°C" "tFET" 1.0,
+                 JLogGraph 7 "PWM" "%" "PWM" 1.0,
+                 JLogGraph 8 "Ubec" "V" "Ubec" 1.0,
+                 JLogGraph 9 "Ibec" "A" "Ibec" 1.0,
+                 JLogGraph 10 "tBEC" "°C" "tBEC" 1.0,
+                 JLogGraph 11 "throttle input" "%" "thr-in" 1.0,
+                 JLogGraph 12 "throttle effective" "%" "throttle-eff" 1.0,
+                 JLogGraph 13 "effective timing" "°" "tmg" 1 ]
+
+
+jLog2GraphsToggled = map (\x -> (x, jLogGraphN x `elem` [3, 4, 7, 8], Nothing, [])) jLog2Graphs
+kosmikGraphsToggled = map (\x -> (x, jLogGraphN x `elem` [2, 5, 7, 1], Nothing, [])) kosmikGraphs
 
 colors = cycle $ [darkgreen, darkred,
                   green, red, blue,
@@ -400,8 +416,14 @@ main = do
   dirRef <- newIORef defaultDir
   fileStore <- listStoreNew []
   graphStore <- listStoreNew jLog2GraphsToggled
-  (canvasContainer, canvas) <- canvasNew
 
+  jlog <- radioButtonNewWithLabel "JLog"
+  kosmik <- radioButtonNewWithLabelFromWidget jlog "Kosmik"
+  radioBox <- hBoxNew False 0
+  boxPackStart radioBox jlog PackGrow 0
+  boxPackStart radioBox kosmik PackGrow 0
+
+  (canvasContainer, canvas) <- canvasNew
   canvas `on` exposeEvent $ do
          liftIO $ do
            (width, height) <- widgetGetSize canvas
@@ -445,14 +467,22 @@ main = do
                   mouseColOfft <- treeViewColumnGetWidth plotsCol
                   widgetInvalidate plotsView mouseColOfft
 
-
   let reloadDir = do
          dir <- readIORef dirRef
-         files <- jLogDir dir "txt"
+         isJlog <- toggleButtonGetActive jlog
+         files <- jLogDir dir (if isJlog then "txt" else "dat")
          listStoreClear fileStore
          mapM_ (listStoreAppend fileStore) $ zip files (True : cycle [False])
          widgetInvalidate canvas 0
   reloadDir
+
+  jlog `on` toggled $ do
+     isJlog <- toggleButtonGetActive jlog
+     listStoreClear graphStore
+     mapM_ (listStoreAppend graphStore) (if isJlog
+                                         then jLog2GraphsToggled
+                                         else kosmikGraphsToggled)
+     reloadDir
 
   hbox <- hBoxNew False 0
   vbox <- vBoxNew False 0
@@ -473,6 +503,7 @@ main = do
     widgetDestroy fcd
  
   boxPackStart vbox dirChooser PackNatural 0
+  boxPackStart vbox radioBox PackNatural 0
   boxPackStart vbox filesContainer PackGrow 0
 
   boxPackStart hbox vbox PackNatural 1
