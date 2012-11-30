@@ -393,8 +393,8 @@ main = do
   initGUI
 
   mousePos <- newIORef (0, 0)
-  logFiles <- jLogDir defaultDir
-  fileStore <- listStoreNew $ zip logFiles (True : cycle [False])
+  dirRef <- newIORef defaultDir
+  fileStore <- listStoreNew []
   graphStore <- listStoreNew jLog2GraphsToggled
   (canvasContainer, canvas) <- canvasNew
 
@@ -441,6 +441,15 @@ main = do
                   mouseColOfft <- treeViewColumnGetWidth plotsCol
                   widgetInvalidate plotsView mouseColOfft
 
+
+  let reloadDir = do
+         dir <- readIORef dirRef
+         files <- jLogDir dir
+         listStoreClear fileStore
+         mapM_ (listStoreAppend fileStore) $ zip files (True : cycle [False])
+         widgetInvalidate canvas 0
+  reloadDir
+
   hbox <- hBoxNew False 0
   vbox <- vBoxNew False 0
 
@@ -452,11 +461,11 @@ main = do
     widgetShowAll fcd
     r <- dialogRun fcd
     when (r == ResponseAccept) $ do
-         dir <- fileChooserGetCurrentFolder fcd
-         when (isJust dir) $ do
-           files <- jLogDir $ fromJust dir
-           listStoreClear fileStore
-           mapM_ (\f -> listStoreAppend fileStore (f, False)) files
+         f <- fileChooserGetCurrentFolder fcd
+         case f of
+           Just dir -> do writeIORef dirRef dir
+                          reloadDir
+           Nothing -> return ()
     widgetDestroy fcd
  
   boxPackStart vbox dirChooser PackNatural 0
